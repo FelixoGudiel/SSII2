@@ -52,8 +52,7 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
     
     while (True):
         nonce = str(
-            #random.randint(10**99, 10**100-1)
-            2
+            random.randint(10**99, 10**100-1)
             ).encode("latin-1")
         res = comprobarNonce(nonce)
         if res is not False:

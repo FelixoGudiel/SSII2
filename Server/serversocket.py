@@ -27,7 +27,9 @@ def comprobarNonce(nonce):
     with open(os.path.join(path, "NonceDB.txt"), "rb") as file:
         presente = False
         for line in file:
-            if line[:-1]==nonce:
+            print(line)
+            print(nonce)
+            if line[:-1]==nonce.encode():
                 presente = True
         if not presente:
             return False
