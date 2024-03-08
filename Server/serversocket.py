@@ -75,12 +75,12 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 presente = comprobarNonce(partes[2])
                 if not presente:
                     #En caso negativo, todo bien.
-                    respuesta = 'Bien'
+                    s.sendall(b'Bien')
                     escribirNonce(partes[2])
                 else:
                     #En caso positivo, es un replay.
-                    respuesta = 'replay!'
+                    s.sendall(b'replay!')
             else:
                 #En caso negativo, alguien ha alterado el contenido/hash.
-                respuesta = 'Hash mal'
+                s.sendall(b'Hash mal')
             
