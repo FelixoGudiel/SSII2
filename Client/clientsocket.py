@@ -35,7 +35,7 @@ def comprobarNonce(nonce):
             if line[:-1]==nonce: 
                 presente = True
         if not presente:
-            return nonce
+            return True
         else:
             return False
 
@@ -65,23 +65,58 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             random.randint(10**99, 10**100-1)
             ).encode("latin-1")
         #Comprobación
-        res = comprobarNonce(nonce)
+        valido = comprobarNonce(nonce)
         #Si no está en la base de datos, se escoge ese nonce.
-        if res is not False:
+        if valido is not False:
             break
-    
+    escribirNonce(nonce)
     #Se genera el resumen del mensaje y el nonce combinados.
     h = hmac.new(secret_key, message + nonce, hashlib.sha256)
     #Se mandan 3 valores separados por "delimitadordelimitadordelimitador". 
     #Estos tres valores se combinan en una única cadena de bytes.
-    mandar = message+ "delimitadordelimitadordelimitador".encode()
-    + h.digest() + "delimitadordelimitadordelimitador".encode()
-    + nonce
+    mandar = message+ "delimitadordelimitadordelimitador".encode() + h.digest() + "delimitadordelimitadordelimitador".encode() + nonce
     #Se manda la cadena de bytes.
     s.sendall(mandar)
+    
+###################################################################################################
+    #Sección de recibir y comprobar la respuesta del servidor
     #Se recibe la respuesta del servidor
     data = s.recv(1024)
-    print(data)
-
-if data is not None:
-    escribirNonce(nonce)
+    #Decodifica el mensaje recibido.
+    decoded = data.decode("latin-1")
+    #Separa los tres valores a recibir.
+    partes = decoded.split("delimitadordelimitadordelimitador")
+    #Crea la función resumen a partir del mensaje y el nonce recibido.
+    h = hmac.new(secret_key, partes[0].encode() + partes[2].encode(), hashlib.sha256)
+    respuesta = b""
+    #Comprueba si el resumen enviado coincide con el recreado.
+    if (h.digest().decode('latin-1') == partes[1]):
+         #En caso positivo, se comprueba si el nonce ya ha sido usado.
+        valido = comprobarNonce(partes[2].encode())
+        if valido:
+            #En caso positivo, todo bien.
+            respuesta = b'Bien'
+            escribirNonce(partes[2].encode())
+        else:
+           #En caso negativo, es un replay.
+            respuesta = b'replay!'
+    else:
+        #En caso negativo, alguien ha alterado el contenido/hash.
+        respuesta = b'Hash mal'
+    parteServidor = ""
+    parteCliente = ""
+    if partes[0] == "Bien":
+        parteServidor = "El servidor ha recibido correctamente la transferencia \"" + message.decode() + "\""
+    if partes[0] == "replay!":
+        parteServidor = "El servidor ha detectado un ataque de replay con transferencia \"" + message.decode() + "\""
+    if partes[0] == "Hash mal":
+        parteServidor = "El servidor ha detectado un error en el hash de la transferencia \"" + message.decode() + "\""
+        
+    if respuesta == b'Bien':
+        parteCliente = " y se ha comprobado que el mensaje pertenece al servidor."
+    if respuesta == b'replay!':
+        parteCliente = " y se sabe que el mensaje ha sido reenviado por un imitador del servidor. (Replay)"
+    if respuesta == b'Hash mal':
+        parteCliente = " y se sabe que un imitador del servidor ha manipulado el contenido del mensaje. (Hash mal)"
+    print(parteServidor + parteCliente)
+            
