@@ -5,12 +5,18 @@ import socket
 import hashlib
 import hmac
 import os
+import random
 import ctypes
 from stat import FILE_ATTRIBUTE_HIDDEN
 
 HOST = "127.0.0.1"  # The server's hostname or IP address
 PORT = 3030  # The port used by the server
-secret_key = b"my_secret_key"
+
+# 1/3 de probabilidad de que se use una clave incorrecta
+if random.random() < 1 / 5:
+    secret_key = b"mi_clave_secreta"
+else:
+    secret_key = b"my_secret_key"
 
 
 # Creación de la carpeta y el fichero NonceDB (si no existen), que almacena los nonces usados
@@ -63,18 +69,25 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
     # enviar.
     message = b"Cuenta1 Cuenta2 2000"
 
-    # Búsqueda de un nonce válido. Hasta que no se crea uno que no esté en la base de datos, no deja de crear.
-    while True:
-        nonce = str(
-            # Los nonces posibles están entre 10^99 y 10^100-1, que son 9.e+99 posibilidades.
-            random.randint(10**99, 10**100 - 1)
-        ).encode("latin-1")
-        # Comprobación
-        valido = comprobarNonce(nonce)
-        # Si no está en la base de datos, se escoge ese nonce.
-        if valido is not False:
-            break
-    escribirNonce(nonce)
+    logName = "NonceDBClient/NonceDB.txt"
+    # Hay un 1/3 de probabilidad de que se use un nonce ya usado, produciendo un error de replay.
+    if random.random() < 1 / 5 and os.path.exists(logName):
+        with open(logName, "r") as file:
+            first_line = file.readline().strip()
+            nonce = first_line.encode("latin-1")
+    else:
+        # Búsqueda de un nonce válido. Hasta que no se crea uno que no esté en la base de datos, no deja de crear.
+        while True:
+            nonce = str(
+                # Los nonces posibles están entre 10^99 y 10^100-1, que son 9.e+99 posibilidades.
+                random.randint(10**99, 10**100 - 1)
+            ).encode("latin-1")
+            # Comprobación
+            valido = comprobarNonce(nonce)
+            # Si no está en la base de datos, se escoge ese nonce.
+            if valido is not False:
+                break
+        escribirNonce(nonce)
     # Se genera el resumen del mensaje y el nonce combinados.
     h = hmac.new(secret_key, message + nonce, hashlib.sha256)
     # Se mandan 3 valores separados por "delimitadordelimitadordelimitador".
